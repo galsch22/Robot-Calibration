@@ -1,0 +1,20 @@
+
+def fixing(time_csv, time_val, data_val):
+    j = 0
+    i = 1
+    counter = 0
+    new_dict = {0: data_val[0]}
+    while i < len(time_csv):
+        if time_csv[j + 1] > time_val[i]:
+            del (time_val[i])
+            counter += 1
+            continue
+        else:
+            j += 1
+            counter += 1
+            new_dict[j] = data_val[counter]
+            i += 1
+
+    del (time_val[i:len(time_val)])
+
+    return time_val, new_dict
