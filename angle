@@ -1,0 +1,303 @@
+import numpy as np
+import math
+from nested_lookup import nested_lookup
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+from import_CSV import nan_helper
+import numpy.linalg as la
+import seaborn as sns
+
+
+def double(lst):
+    return [i * 1000 for i in lst]
+
+
+def check(vector, name_vector):
+    # check which of the marker create middle vector
+    vL = []
+    point = []
+    middle_v = []
+    v12x = vector[0][0][0] - vector[1][0][0]
+    v12y = vector[0][1][0] - vector[1][1][0]
+    v12z = vector[0][2][0] - vector[1][2][0]
+    vL.append(math.sqrt(v12x ** 2 + v12y ** 2 + v12z ** 2))
+    point.append([0, 1])
+
+    v13x = vector[0][0][0] - vector[2][0][0]
+    v13y = vector[0][1][0] - vector[2][1][0]
+    v13z = vector[0][2][0] - vector[2][2][0]
+    vL.append(math.sqrt(v13x ** 2 + v13y ** 2 + v13z ** 2))
+    point.append([0, 2])
+
+    v14x = vector[0][0][0] - vector[3][0][0]
+    v14y = vector[0][1][0] - vector[3][1][0]
+    v14z = vector[0][2][0] - vector[3][2][0]
+    vL.append(math.sqrt(v14x ** 2 + v14y ** 2 + v14z ** 2))
+    point.append([0, 3])
+
+    v23x = vector[1][0][0] - vector[2][0][0]
+    v23y = vector[1][1][0] - vector[2][1][0]
+    v23z = vector[1][2][0] - vector[2][2][0]
+    vL.append(math.sqrt(v23x ** 2 + v23y ** 2 + v23z ** 2))
+    point.append([1, 2])
+
+    v24x = vector[1][0][0] - vector[3][0][0]
+    v24y = vector[1][1][0] - vector[3][1][0]
+    v24z = vector[1][2][0] - vector[3][2][0]
+    vL.append(math.sqrt(v24x ** 2 + v24y ** 2 + v24z ** 2))
+    point.append([1, 3])
+
+    v34x = vector[2][0][0] - vector[3][0][0]
+    v34y = vector[2][1][0] - vector[3][1][0]
+    v34z = vector[2][2][0] - vector[3][2][0]
+    vL.append(math.sqrt(v34x ** 2 + v34y ** 2 + v34z ** 2))
+    point.append([2, 3])
+
+    print(vL)
+
+    for i in range(len(vL)):
+        if name_vector == 'Rigid Body 1':
+            if 242 < vL[i] < 256:
+                middle_v.append(point[i])
+                if len(middle_v) == 2:
+                    break
+        else:
+            if 118 < vL[i] < 142:
+                middle_v.append(point[i])
+                if len(middle_v) == 2:
+                    break
+
+    return middle_v[0][0], middle_v[0][1], middle_v[1][0], middle_v[1][1]
+
+
+def middle_point(point1x, point1y, point1z, point2x, point2y, point2z):
+    vx = (point1x + point2x) / 2
+    vy = (point1y + point2y) / 2
+    vz = (point1z + point2z) / 2
+    return [vx, vy, vz]
+
+
+def middle_vector(point1, point2):
+    vector = [x - y for x, y in zip(point1, point2)]
+    return vector
+
+
+def unit_vector(vector):
+    # Returns the unit vector of the vector
+    return vector / np.linalg.norm(vector)
+
+
+def angle(vector1, vector2, acute):
+    # Returns the angle in degrees between given vectors
+    v1_u = unit_vector(vector1)
+    v2_u = unit_vector(vector2)
+    angle_rad = np.arccos(np.dot(vector1, vector2) / (np.linalg.norm(vector1) * np.linalg.norm(vector2)))
+    angle_deg = np.rad2deg(angle_rad)
+    return angle_deg
+
+
+def create_3D_point(vx, vy, vz):
+    v = [vx, vy, vz]
+    return v
+
+
+def create_angle(data_csv, name1, name2, data_cmd, data_val, place_bag, time_cmd, time_val, time_csv):
+    def analyzeGraph(value):
+        #  list of vector for each marker (matrix - 4 columns)
+        v = {}
+        # list of middle vector
+        final_vector = {}
+        vx = {}
+        vy = {}
+        vz = {}
+        keys = data_csv['Marker'].keys()
+        j = 0
+        for t, key in enumerate(keys):
+            if value in key:
+                vxp = np.array(data_csv['Marker'][key]['Position']['X'])
+                vx[j] = np.array(double(nan_helper(vxp)))
+                vyp = np.array(data_csv['Marker'][key]['Position']['Y'])
+                vy[j] = np.array(double(nan_helper(vyp)))
+                vzp = np.array(data_csv['Marker'][key]['Position']['Z'])
+                vz[j] = np.array(double(nan_helper(vzp)))
+                j += 1
+            if j == 4:
+                break
+
+        for t in range(4):
+            v[t] = create_3D_point(vx[t], vy[t], vz[t])
+
+        p1_1, p1_2, p2_1, p2_2 = check(v, value)
+        point1 = []
+        point2 = []
+        for k in range(len(time_csv)):
+            point1.append(
+                middle_point(v[p1_1][0][k], v[p1_1][1][k], v[p1_1][2][k], v[p1_2][0][k], v[p1_2][1][k], v[p1_2][2][k]))
+            point2.append(
+                middle_point(v[p2_1][0][k], v[p2_1][1][k], v[p2_1][2][k], v[p2_2][0][k], v[p2_2][1][k], v[p2_2][2][k]))
+            if point1[k][0] > point2[k][0]:
+                final_vector[k] = middle_vector(point2[k], point1[k])
+
+            else:
+                final_vector[k] = middle_vector(point1[k], point2[k])
+        return final_vector
+
+    middle_vector1 = analyzeGraph(name1)
+    middle_vector2 = analyzeGraph(name2)
+
+    angleList = []
+    if place_bag == 0 or place_bag == 2:
+        for i in range(len(time_csv)):
+            angleList.append(angle(middle_vector1[i], middle_vector2[i], True))
+            if middle_vector1[i][1] > middle_vector2[i][1]:
+                angleList[i] *= -1
+                if angleList[i] < -90:
+                    angleList[i] = (angleList[i] + 180)
+            else:
+                if angleList[i] > 90:
+                    angleList[i] = (180 - angleList[i])
+
+    if place_bag == 1 or place_bag == 3:
+        for i in range(len(time_csv)):
+            angleList.append(angle(middle_vector1[i], middle_vector2[i], True))
+            if middle_vector1[i][2] < middle_vector2[i][2]:
+                angleList[i] *= -1
+                if angleList[i] < -90:
+                    angleList[i] = (180 + angleList[i])
+            else:
+                if angleList[i] > 90:
+                    angleList[i] = 180 - angleList[i]
+
+    fig_cmd = list()
+    fig_val = list()
+    for i in range(len(data_cmd)):
+        fig_cmd.append(data_cmd[i][place_bag])
+    for i in range(len(data_val)):
+        fig_val.append(data_val[i][place_bag])
+
+    return angleList, fig_val, fig_cmd
+
+
+def time_sec(time):
+    time_in_sec = [i * 0.001 for i in time]
+    return time_in_sec
+
+
+def angle_graph(data_csv, name1, name2, data_cmd, data_val, place_bag, time_cmd, time_val, time_csv, value):
+    angleList, fig_val, fig_cmd = create_angle(data_csv, name1, name2, data_cmd, data_val, place_bag, time_cmd,
+                                               time_val, time_csv)
+
+
+    plt.figure(value)
+    plt.style.use('seaborn')
+    plt.xlabel('Time (sec)')  # returns a Text instance
+    plt.ylabel('Angle (deg)')
+    plt.plot(time_csv, angleList, label='Calculate Angle')
+    plt.plot(time_cmd, fig_cmd, label='Command')
+    plt.plot(time_val, fig_val, label='Actual Value')
+    plt.title(value)
+
+    plt.legend()
+    plt.show(block=False)
+
+
+def error(data_csv, name1, name2, data_cmd, data_val, place_bag, time_cmd, time_val, time_csv, value):
+    angleList, fig_val, fig_cmd = create_angle(data_csv, name1, name2, data_cmd, data_val, place_bag, time_cmd,
+                                               time_val, time_csv)
+    difference = []
+    time_val = time_sec(time_val)
+    len_angleList = len(angleList)
+    len_val = len(fig_val)
+    zip_object = zip(angleList, fig_val)
+    i = 0
+    if len_angleList > len_val:
+        for angleList, fig_val in zip_object:
+            if i <= len_val:
+                difference.append((angleList - fig_val))
+                i += 1
+            else:
+                break
+
+        plt.figure(value)
+        plt.style.use('seaborn')
+        plt.xlabel('Time (sec)')  # returns a Text instance
+        plt.ylabel('Error ')
+        plt.plot(time_val, difference)
+        plt.title("Error")
+        plt.show(block=False)
+
+    else:
+        for angleList, fig_val in zip_object:
+            if i <= len_angleList:
+                difference.append((angleList - fig_val))
+                i += 1
+            else:
+                break
+
+        plt.figure(value)
+        plt.style.use('seaborn')
+        plt.xlabel('Time (sec)')  # returns a Text instance
+        plt.ylabel('Error ')
+        plt.plot(time_csv, difference)
+        plt.title(value)
+        plt.show(block=False)
+
+
+def histogram(data_csv, name1, name2, data_cmd, data_val, place_bag, time_cmd, time_val, time_csv, value):
+    angleList, fig_val, fig_cmd = create_angle(data_csv, name1, name2, data_cmd, data_val, place_bag, time_cmd,
+                                               time_val, time_csv)
+    difference = []
+    len_angleList = len(angleList)
+    len_val = len(fig_val)
+    zip_object = zip(angleList, fig_val)
+    i = 0
+    if len_angleList > len_val:
+        for angleList, fig_val in zip_object:
+            if i <= len_val:
+                difference.append((angleList - fig_val))
+                i += 1
+            else:
+                break
+
+        plt.figure(value)
+        plt.style.use('seaborn')
+        mu, std = norm.fit(difference)
+
+        # Plot the histogram.
+        plt.hist(difference, bins=25, density=True, alpha=0.6, color='g')
+
+        # Plot the PDF.
+        xmin, xmax = plt.xlim()
+        x = np.linspace(xmin, xmax, 100)
+        p = norm.pdf(x, mu, std)
+        plt.plot(x, p, 'k', linewidth=2)
+        title = "Fit results: mu = %.2f,  std = %.2f" % (mu, std)
+        plt.title(title)
+        plt.show(block=False)
+
+    else:
+        for angleList, fig_val in zip_object:
+            if i <= len_angleList:
+                difference.append((angleList - fig_val))
+                i += 1
+            else:
+                break
+
+        plt.figure(value)
+        plt.style.use('seaborn')
+        mu, std = norm.fit(difference)
+
+        # Plot the histogram.
+        plt.hist(difference, bins=25, density=True, alpha=0.6, color='g')
+
+        # Plot the PDF.
+        xmin, xmax = plt.xlim()
+        x = np.linspace(xmin, xmax, 100)
+        p = norm.pdf(x, mu, std)
+        plt.plot(x, p, 'k', linewidth=2)
+        title = "Fit results: mu = %.2f,  std = %.2f" % (mu, std)
+        plt.xlabel('Error')
+        plt.ylabel('PDF (%)')
+        plt.title(title)
+        plt.show(block=False)
